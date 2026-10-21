@@ -10,8 +10,41 @@ A local web app for **kerimbalci.com** that lists Ghost members by **subscriptio
   book (e.g. *"9 months done, 3 to go"*). Subscription age **pauses and resumes**, never
   resets.
 
-> **Status:** Planning. No application code yet — see [`PLAN.md`](./PLAN.md) for the full
-> specification and build phases.
+> **Status:** Phases 0–2 done — backend (Ghost sync + SQLite + API) and React UI are
+> working against live data. Phase 3 (daily cron + emails) is next. See [`PLAN.md`](./PLAN.md).
+
+---
+
+## Running it (local)
+
+This project is pinned to **Node 18** via `.nvmrc` (the native `better-sqlite3` binary is
+built for it). Run `nvm use` in each terminal first.
+
+**Terminal 1 — backend API (http://localhost:4000):**
+```bash
+cd backend
+nvm use
+npm install        # first time only
+npm run dev        # or: npm start
+```
+
+**Terminal 2 — frontend UI (http://localhost:5173):**
+```bash
+cd frontend
+nvm use
+npm install        # first time only
+npm run dev
+```
+
+Open **http://localhost:5173** and click **Sync from Ghost** to pull members. The frontend
+proxies `/api/*` to the backend, so no CORS setup is needed.
+
+**One-off sync (what the daily cron will call):**
+```bash
+cd backend && nvm use && npm run sync
+```
+
+Inspect the database directly anytime: `sqlite3 backend/data/app.sqlite`.
 
 ---
 
