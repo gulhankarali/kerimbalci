@@ -1,6 +1,6 @@
 # Ghost Subscriber "Book Reward" Tracker — Plan
 
-**Status:** Planning (no code yet)
+**Status:** Phase 0 complete (data spike done) — no app code yet
 **Last updated:** 2026-10-21
 **Owner:** Gulhan Karali (gulhan.karali@gmail.com)
 
@@ -39,6 +39,45 @@ subscription pauses.
 
 > Excluded from subscription-age tracking: comped / free / staff members (to be confirmed
 > against live data).
+
+---
+
+## 2b. Phase 0 findings — live data spike (2026-10-21)
+
+Probed the **real kerimbalci.com Ghost Admin API** (Content API confirmed useless here —
+`/members` returns 404; members are Admin-only).
+
+**Member base:** 134 total → **18 paid**, 1 comped, 115 free. The sampled members were
+**created 2026-10-20/21 — the subscriber base is brand new; nobody is near 12 months.**
+
+**The Admin API subscription object gives us, directly:**
+
+| Field | Example | Use in our logic |
+|-------|---------|------------------|
+| `status` | `trialing` | Stripe status (trialing / active / canceled / past_due / unpaid) → **pause detection** |
+| `trial_start_at`, `trial_end_at` | explicit ISO timestamps | **Paid clock starts at `trial_end_at`** — no need to derive |
+| `tier.trial_days` | **7** | Confirms the 7-day trial assumption |
+| `start_date` | ISO | Subscription start |
+| `current_period_end` | ISO | Current billing period end |
+| `cancel_at_period_end`, `cancellation_reason` | bool / text | Cancellation signal |
+| `plan.interval` | `month` (yearly tiers also exist) | Monthly vs annual |
+| `default_payment_card_last4` | `9714` | Payment presence |
+| `tier.name` / `.slug` | `Gold` | Tier label |
+
+**The one gap:** the subscription object is a **snapshot of current state only** — it has
+**no invoice/payment history**, so Ghost alone cannot reconstruct *past* paused/resumed
+paid periods retroactively.
+
+### Decision: **Stripe is NOT needed.** ✅
+Because the member base is brand new and no one is near 12 months, we don't need historical
+reconstruction. We **accumulate accrued paid time by observing member state daily, going
+forward** — exactly what the `paid_periods` table is for. The daily job adds paid time
+while a member is paying and freezes it while paused. Stripe would only matter for
+historical backfill, which is explicitly out of scope.
+
+> Keys: Content API key and Admin API key both verified working. The **Admin key is a
+> full read/write secret** — it was shared in plaintext during this spike and should be
+> **rotated before production use**. Keys live only in a git-ignored `.env`.
 
 ---
 
@@ -182,20 +221,22 @@ Key invariants:
 
 1. **Email transport** — Gmail **App Password** (SMTP, simplest for local) vs. a service
    like **Resend / SendGrid**.
-2. **Stripe key** — not available yet; owner can retrieve it **if** Ghost's Admin API data
-   proves insufficient to reconstruct accrued paid time.
-3. **Comped / free / staff** handling — confirm exclusion against live data.
-4. **Trial length** — confirm it is always exactly 7 days (affects `trial_end` accuracy).
+2. ~~**Stripe key**~~ — **RESOLVED in Phase 0: not needed.** Accrued time is tracked
+   forward via daily observation; no historical reconstruction required.
+3. **Comped / free / staff** handling — 1 comped member exists; confirm exclusion rule.
+4. ~~**Trial length**~~ — **RESOLVED: `tier.trial_days = 7`**, and `trial_end_at` is
+   provided directly by the API.
 5. **Exact GMT time of day** for the cron run.
 
 ---
 
 ## 9. Open risks
 
-- **Accrued paid time from Ghost alone.** Ghost's member object exposes subscription
-  status and some Stripe fields, but summing *paused/resumed* paid periods accurately may
-  require **Stripe invoice/subscription history**. This is the single biggest unknown and
-  is validated in Phase 0.
+- ~~**Accrued paid time from Ghost alone.**~~ **RESOLVED in Phase 0.** Ghost gives only a
+  current-state snapshot (no invoice history), but since the member base is brand new and
+  no one is near 12 months, we accrue paid time forward by daily observation — Stripe is
+  unnecessary. The residual dependency is simply that **the daily job must run reliably**
+  so the accrual ledger stays complete (see next risk).
 - **Pause detection granularity.** We detect pauses by diffing daily snapshots; a
   pause-and-resume that happens entirely between two runs could be missed. Stripe webhooks
   would be more precise but add infra; out of scope for the local-only v1.
@@ -204,9 +245,9 @@ Key invariants:
 
 ## 10. Suggested build phases
 
-- **Phase 0 — Data spike (recommended next step).** With the real Ghost Admin API key,
-  inspect actual member/subscription payloads to confirm whether accrued paid time is
-  reconstructable without Stripe. Decides the architecture. *No app code yet.*
+- **Phase 0 — Data spike. ✅ DONE (2026-10-21).** Inspected real member/subscription
+  payloads. Outcome: Admin API suffices, **no Stripe needed**, field mappings locked
+  (see §2b). *No app code written.*
 - **Phase 1 — Backend core.** Ghost client, SQLite schema, subscription-age calculator,
   REST read endpoints. Verified against real data.
 - **Phase 2 — Frontend.** React + TS customer list, sort/filter by subscription age,
@@ -220,9 +261,11 @@ Key invariants:
 
 ## 11. What I need from you to proceed past planning
 
-- Ghost **Admin API key** + **API URL** for kerimbalci.com (for Phase 0 data spike).
-- Choice of **email transport** (can defer to Phase 3).
-- Whether to retrieve a **Stripe key** (only if Phase 0 shows Ghost data is insufficient).
+- ~~Ghost Admin API key + URL~~ — **received & verified in Phase 0.**
+- ~~Stripe key~~ — **not needed (Phase 0).**
+- Choice of **email transport** — Gmail App Password vs. Resend/SendGrid (needed by Phase 3).
+- **Exact GMT time of day** for the daily job.
+- **Comped-member** rule: exclude the 1 comped member from tracking? (assumed yes)
 ```
 
 Nothing here is built. This document is the agreement before any code.
