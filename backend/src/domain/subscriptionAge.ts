@@ -13,6 +13,8 @@ export interface MemberClassification {
   trialEndAt: string | null; // when the paid clock starts
   interval: string | null; // month | year
   tier: string | null;
+  planAmount: number | null; // subscription price in minor units (cents)
+  currency: string | null;
 }
 
 /**
@@ -43,6 +45,8 @@ export function classifyMember(member: GhostMember): MemberClassification {
     trialEndAt: sub?.trial_end_at ?? null,
     interval: sub?.plan?.interval ?? null,
     tier: sub?.tier?.name ?? member.tiers?.[0]?.name ?? null,
+    planAmount: sub?.plan?.amount ?? null,
+    currency: sub?.plan?.currency ?? null,
   };
 }
 

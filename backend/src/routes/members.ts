@@ -66,7 +66,46 @@ router.get('/stats', (_req, res) => {
   const lastSync = db
     .prepare('SELECT * FROM sync_runs ORDER BY id DESC LIMIT 1')
     .get();
-  res.json({ total: total.n, byState, dueForBook: due, milestoneMonths: config.milestoneMonths, lastSync });
+
+  // Subscriber base = anyone with a live subscription (active or trialing).
+  // Revenue counts trialing members too ("regardless of trialing").
+  const subscriberRows = db
+    .prepare(
+      `SELECT tier, interval, plan_amount, currency
+       FROM members WHERE sub_status IN ('active', 'trialing')`,
+    )
+    .all() as { tier: string | null; interval: string | null; plan_amount: number | null; currency: string | null }[];
+
+  const byTier: Record<string, number> = {};
+  let mrrCents = 0;
+  const currencies = new Set<string>();
+  for (const r of subscriberRows) {
+    const tier = r.tier || 'Unknown';
+    byTier[tier] = (byTier[tier] || 0) + 1;
+    if (r.plan_amount) {
+      // Normalise any plan to a monthly figure.
+      const monthly = r.interval === 'year' ? r.plan_amount / 12 : r.plan_amount;
+      mrrCents += monthly;
+      if (r.currency) currencies.add(r.currency.toUpperCase());
+    }
+  }
+  const mrr = mrrCents / 100;
+  const revenue = {
+    mrr,
+    arr: mrr * 12,
+    currency: currencies.size === 1 ? [...currencies][0] : currencies.size === 0 ? 'USD' : 'MIXED',
+    subscriberCount: subscriberRows.length,
+  };
+
+  res.json({
+    total: total.n,
+    byState,
+    byTier,
+    revenue,
+    dueForBook: due,
+    milestoneMonths: config.milestoneMonths,
+    lastSync,
+  });
 });
 
 // POST /api/sync — trigger a sync on demand (the daily cron will call runSync too)

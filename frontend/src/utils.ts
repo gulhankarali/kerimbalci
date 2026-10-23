@@ -24,3 +24,11 @@ export function formatDate(iso: string | null): string {
   const d = new Date(iso);
   return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
+
+const CURRENCY_SYMBOLS: Record<string, string> = { USD: '$', EUR: '€', GBP: '£', TRY: '₺' };
+
+export function formatMoney(amount: number, currency: string): string {
+  const sym = CURRENCY_SYMBOLS[currency] || '';
+  const n = amount.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  return sym ? `${sym}${n}` : `${n} ${currency}`;
+}

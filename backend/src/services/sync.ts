@@ -73,12 +73,13 @@ function upsertMemberBase(
   // accrued_* and current_state are finalised later in the same sync.
   db.prepare(
     `INSERT INTO members (id, email, name, status, comped, tier, sub_status, interval,
-        trial_end_at, created_at, updated_at, last_synced_at)
+        plan_amount, currency, trial_end_at, created_at, updated_at, last_synced_at)
      VALUES (@id, @email, @name, @status, @comped, @tier, @sub_status, @interval,
-        @trial_end_at, @created_at, @updated_at, @last_synced_at)
+        @plan_amount, @currency, @trial_end_at, @created_at, @updated_at, @last_synced_at)
      ON CONFLICT(id) DO UPDATE SET
         email=excluded.email, name=excluded.name, status=excluded.status, comped=excluded.comped,
         tier=excluded.tier, sub_status=excluded.sub_status, interval=excluded.interval,
+        plan_amount=excluded.plan_amount, currency=excluded.currency,
         trial_end_at=excluded.trial_end_at, created_at=excluded.created_at, updated_at=excluded.updated_at,
         last_synced_at=excluded.last_synced_at`,
   ).run({
@@ -90,6 +91,8 @@ function upsertMemberBase(
     tier: cls.tier,
     sub_status: cls.subStatus,
     interval: cls.interval,
+    plan_amount: cls.planAmount,
+    currency: cls.currency,
     trial_end_at: cls.trialEndAt,
     created_at: member.created_at,
     updated_at: member.updated_at,

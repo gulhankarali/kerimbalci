@@ -67,6 +67,22 @@ CREATE TABLE IF NOT EXISTS sync_runs (
 );
 `;
 
+// Additive column migrations: add any missing columns to existing databases
+// without dropping data. Each entry is [table, column, definition].
+const MIGRATIONS: [string, string, string][] = [
+  ['members', 'plan_amount', 'INTEGER'], // subscription price in minor units (cents)
+  ['members', 'currency', 'TEXT'],
+];
+
+function runMigrations(db: Database.Database): void {
+  for (const [table, column, def] of MIGRATIONS) {
+    const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+    if (!cols.some((c) => c.name === column)) {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`);
+    }
+  }
+}
+
 let _db: Database.Database | null = null;
 
 export function getDb(): Database.Database {
@@ -76,6 +92,7 @@ export function getDb(): Database.Database {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.exec(SCHEMA);
+  runMigrations(db);
   _db = db;
   return db;
 }

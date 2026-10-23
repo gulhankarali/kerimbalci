@@ -38,9 +38,18 @@ export interface SyncRun {
   error: string | null;
 }
 
+export interface Revenue {
+  mrr: number;
+  arr: number;
+  currency: string;
+  subscriberCount: number;
+}
+
 export interface Stats {
   total: number;
   byState: StateCount[];
+  byTier: Record<string, number>;
+  revenue: Revenue;
   dueForBook: DueMember[];
   milestoneMonths: number;
   lastSync: SyncRun | null;
