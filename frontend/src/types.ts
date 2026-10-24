@@ -45,6 +45,22 @@ export interface Revenue {
   subscriberCount: number;
 }
 
+export interface Snapshot {
+  date: string;
+  total: number;
+  free_count: number;
+  silver_count: number;
+  gold_count: number;
+  active_count: number;
+  mrr: number;
+  arr: number;
+}
+
+export interface RegionCount {
+  region: string;
+  n: number;
+}
+
 export interface Stats {
   total: number;
   byState: StateCount[];

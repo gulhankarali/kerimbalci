@@ -3,6 +3,7 @@ import { api } from './api';
 import type { Member, Stats } from './types';
 import { StatCards } from './components/StatCards';
 import { MembersTable } from './components/MembersTable';
+import { Charts } from './components/Charts';
 import { STATE_LABELS } from './utils';
 
 const FILTERS = ['all', 'active', 'in_trial', 'paused', 'completed', 'comped', 'free'];
@@ -15,6 +16,7 @@ export function App() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0); // bump to refresh charts
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -45,6 +47,7 @@ export function App() {
       const r = await api.sync();
       if (!r.ok) throw new Error(r.error || 'sync failed');
       await load();
+      setReloadToken((t) => t + 1); // refresh charts after sync
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -67,6 +70,8 @@ export function App() {
       {error && <div className="error">⚠ {error}</div>}
 
       {stats && <StatCards stats={stats} />}
+
+      <Charts key={reloadToken} />
 
       {stats && stats.dueForBook.length > 0 && (
         <div className="due-panel">

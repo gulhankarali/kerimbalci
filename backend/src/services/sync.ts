@@ -8,6 +8,7 @@ import {
   daysToMonths,
   MemberClassification,
 } from '../domain/subscriptionAge';
+import { parseCountryCode, regionForCountry } from '../domain/region';
 
 export interface SyncResult {
   membersSeen: number;
@@ -71,15 +72,19 @@ function upsertMemberBase(
 ): void {
   // Insert/refresh the member row first so paid_periods/events FKs resolve.
   // accrued_* and current_state are finalised later in the same sync.
+  const countryCode = parseCountryCode(member.geolocation);
+  const region = regionForCountry(countryCode);
+
   db.prepare(
     `INSERT INTO members (id, email, name, status, comped, tier, sub_status, interval,
-        plan_amount, currency, trial_end_at, created_at, updated_at, last_synced_at)
+        plan_amount, currency, country_code, region, trial_end_at, created_at, updated_at, last_synced_at)
      VALUES (@id, @email, @name, @status, @comped, @tier, @sub_status, @interval,
-        @plan_amount, @currency, @trial_end_at, @created_at, @updated_at, @last_synced_at)
+        @plan_amount, @currency, @country_code, @region, @trial_end_at, @created_at, @updated_at, @last_synced_at)
      ON CONFLICT(id) DO UPDATE SET
         email=excluded.email, name=excluded.name, status=excluded.status, comped=excluded.comped,
         tier=excluded.tier, sub_status=excluded.sub_status, interval=excluded.interval,
         plan_amount=excluded.plan_amount, currency=excluded.currency,
+        country_code=excluded.country_code, region=excluded.region,
         trial_end_at=excluded.trial_end_at, created_at=excluded.created_at, updated_at=excluded.updated_at,
         last_synced_at=excluded.last_synced_at`,
   ).run({
@@ -93,10 +98,62 @@ function upsertMemberBase(
     interval: cls.interval,
     plan_amount: cls.planAmount,
     currency: cls.currency,
+    country_code: countryCode,
+    region,
     trial_end_at: cls.trialEndAt,
     created_at: member.created_at,
     updated_at: member.updated_at,
     last_synced_at: nowIso,
+  });
+}
+
+/**
+ * Compute today's metric snapshot (GMT) and upsert it. Re-running on the same
+ * day overwrites that day's row, so the latest sync wins.
+ */
+function storeSnapshot(db: Database.Database, nowIso: string): void {
+  const date = nowIso.slice(0, 10); // YYYY-MM-DD in UTC/GMT
+  const one = (sql: string, ...p: unknown[]) =>
+    (db.prepare(sql).get(...p) as { n: number }).n;
+
+  const total = one('SELECT COUNT(*) n FROM members');
+  const free = one("SELECT COUNT(*) n FROM members WHERE status='free'");
+  const active = one("SELECT COUNT(*) n FROM members WHERE current_state='active'");
+  const gold = one(
+    "SELECT COUNT(*) n FROM members WHERE tier='Gold' AND sub_status IN ('active','trialing')",
+  );
+  const silver = one(
+    "SELECT COUNT(*) n FROM members WHERE tier='Silver' AND sub_status IN ('active','trialing')",
+  );
+
+  const rev = db
+    .prepare(
+      `SELECT interval, plan_amount FROM members WHERE sub_status IN ('active','trialing')`,
+    )
+    .all() as { interval: string | null; plan_amount: number | null }[];
+  let mrrCents = 0;
+  for (const r of rev) {
+    if (r.plan_amount) mrrCents += r.interval === 'year' ? r.plan_amount / 12 : r.plan_amount;
+  }
+  const mrr = mrrCents / 100;
+
+  db.prepare(
+    `INSERT INTO metrics_snapshots (date, total, free_count, silver_count, gold_count, active_count, mrr, arr, taken_at)
+     VALUES (@date, @total, @free, @silver, @gold, @active, @mrr, @arr, @taken_at)
+     ON CONFLICT(date) DO UPDATE SET
+        total=excluded.total, free_count=excluded.free_count, silver_count=excluded.silver_count,
+        gold_count=excluded.gold_count, active_count=excluded.active_count,
+        mrr=excluded.mrr, arr=excluded.arr, taken_at=excluded.taken_at`,
+  ).run({
+    date,
+    total,
+    free,
+    silver,
+    gold,
+    active,
+    mrr,
+    arr: mrr * 12,
+    taken_at: nowIso,
   });
 }
 
@@ -204,6 +261,7 @@ export async function runSync(): Promise<SyncResult> {
         if (r.resumed) resumes++;
         if (r.milestone) milestones++;
       }
+      storeSnapshot(db, nowIso);
     });
     tx(members);
 

@@ -108,6 +108,35 @@ router.get('/stats', (_req, res) => {
   });
 });
 
+// GET /api/metrics/timeseries — daily snapshots for the trend charts
+router.get('/metrics/timeseries', (_req, res) => {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT date, total, free_count, silver_count, gold_count, active_count, mrr, arr
+       FROM metrics_snapshots ORDER BY date ASC`,
+    )
+    .all();
+  res.json({ snapshots: rows });
+});
+
+// GET /api/metrics/regions — current member distribution by region
+router.get('/metrics/regions', (_req, res) => {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT COALESCE(region, 'Other') AS region, COUNT(*) AS n
+       FROM members GROUP BY COALESCE(region, 'Other')`,
+    )
+    .all() as { region: string; n: number }[];
+  // Stable order: USA, EU, UK, Other.
+  const order = ['USA', 'EU', 'UK', 'Other'];
+  const map: Record<string, number> = {};
+  for (const r of rows) map[r.region] = r.n;
+  const regions = order.map((region) => ({ region, n: map[region] || 0 }));
+  res.json({ regions });
+});
+
 // POST /api/sync — trigger a sync on demand (the daily cron will call runSync too)
 router.post('/sync', async (_req, res) => {
   try {

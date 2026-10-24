@@ -82,4 +82,17 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 .badge--free { background: #f0f2f4; color: var(--muted); }
 .badge--completed { background: #fff3d6; color: var(--amber); }
 
+/* Charts */
+.charts { margin-bottom: 22px; }
+.chart-note { margin: 0 0 12px; }
+.chart-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  padding: 16px 18px; margin-bottom: 16px;
+}
+.chart-card h3 { margin: 0 0 12px; font-size: 15px; color: var(--text); }
+.chart-card--wide { width: 100%; }
+.charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.chart-hero { font-size: 26px; font-weight: 700; color: var(--text); margin: -4px 0 6px; }
+@media (max-width: 720px) { .charts-row { grid-template-columns: 1fr; } }
+
 .footer { margin-top: 24px; }

@@ -65,6 +65,19 @@ CREATE TABLE IF NOT EXISTS sync_runs (
   milestones    INTEGER,
   error         TEXT
 );
+
+-- One row per GMT day: the trend charts read from here.
+CREATE TABLE IF NOT EXISTS metrics_snapshots (
+  date          TEXT PRIMARY KEY,   -- YYYY-MM-DD (GMT)
+  total         INTEGER,
+  free_count    INTEGER,
+  silver_count  INTEGER,
+  gold_count    INTEGER,
+  active_count  INTEGER,
+  mrr           REAL,
+  arr           REAL,
+  taken_at      TEXT
+);
 `;
 
 // Additive column migrations: add any missing columns to existing databases
@@ -72,6 +85,8 @@ CREATE TABLE IF NOT EXISTS sync_runs (
 const MIGRATIONS: [string, string, string][] = [
   ['members', 'plan_amount', 'INTEGER'], // subscription price in minor units (cents)
   ['members', 'currency', 'TEXT'],
+  ['members', 'country_code', 'TEXT'], // ISO country from Ghost geolocation
+  ['members', 'region', 'TEXT'], // USA | EU | UK | Other
 ];
 
 function runMigrations(db: Database.Database): void {

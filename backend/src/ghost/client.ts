@@ -24,6 +24,7 @@ export interface GhostMember {
   comped: boolean;
   created_at: string;
   updated_at: string;
+  geolocation: string | null; // JSON string: {"country","country_code","region"}
   subscriptions: GhostSubscription[];
   current_subscription?: GhostSubscription | null;
   tiers?: { name: string; slug: string }[];
