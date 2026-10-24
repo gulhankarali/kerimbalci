@@ -6,6 +6,7 @@ import {
   classifyMember,
   deriveState,
   daysToMonths,
+  primarySubscription,
   MemberClassification,
 } from '../domain/subscriptionAge';
 import { parseCountryCode, regionForCountry } from '../domain/region';
@@ -107,54 +108,106 @@ function upsertMemberBase(
   });
 }
 
+interface DerivedSnapshot {
+  total: number;
+  free: number;
+  silver: number;
+  gold: number;
+  active: number;
+  mrr: number;
+}
+
 /**
- * Compute today's metric snapshot (GMT) and upsert it. Re-running on the same
- * day overwrites that day's row, so the latest sync wins.
+ * Reconstruct the metrics as they stood at the end of a given GMT day, using
+ * each member's created_at and their subscription start_date / trial_end_at.
+ * Honest caveat: this projects *current* members/subscriptions back onto their
+ * own start dates — it cannot see members who churned and were deleted, nor
+ * past tier changes. For a brand-new base with no churn it is an accurate
+ * backfill; live days captured going forward are exact.
  */
-function storeSnapshot(db: Database.Database, nowIso: string): void {
-  const date = nowIso.slice(0, 10); // YYYY-MM-DD in UTC/GMT
-  const one = (sql: string, ...p: unknown[]) =>
-    (db.prepare(sql).get(...p) as { n: number }).n;
-
-  const total = one('SELECT COUNT(*) n FROM members');
-  const free = one("SELECT COUNT(*) n FROM members WHERE status='free'");
-  const active = one("SELECT COUNT(*) n FROM members WHERE current_state='active'");
-  const gold = one(
-    "SELECT COUNT(*) n FROM members WHERE tier='Gold' AND sub_status IN ('active','trialing')",
-  );
-  const silver = one(
-    "SELECT COUNT(*) n FROM members WHERE tier='Silver' AND sub_status IN ('active','trialing')",
-  );
-
-  const rev = db
-    .prepare(
-      `SELECT interval, plan_amount FROM members WHERE sub_status IN ('active','trialing')`,
-    )
-    .all() as { interval: string | null; plan_amount: number | null }[];
+function deriveSnapshotForDay(members: GhostMember[], dayEndMs: number): DerivedSnapshot {
+  let total = 0;
+  let gold = 0;
+  let silver = 0;
+  let active = 0;
   let mrrCents = 0;
-  for (const r of rev) {
-    if (r.plan_amount) mrrCents += r.interval === 'year' ? r.plan_amount / 12 : r.plan_amount;
-  }
-  const mrr = mrrCents / 100;
 
+  for (const m of members) {
+    if (Date.parse(m.created_at) > dayEndMs) continue; // not a member yet on this day
+    total++;
+
+    const cls = classifyMember(m);
+    const liveNow = cls.subStatus === 'active' || cls.subStatus === 'trialing';
+    if (!liveNow) continue; // only project members who currently hold a subscription
+
+    const sub = primarySubscription(m);
+    const startedMs = sub?.start_date ? Date.parse(sub.start_date) : null;
+    if (startedMs === null || startedMs > dayEndMs) continue; // subscription not started yet
+
+    if (cls.tier === 'Gold') gold++;
+    else if (cls.tier === 'Silver') silver++;
+
+    // MRR counts trialing too ("regardless of trialing").
+    if (cls.planAmount) mrrCents += cls.interval === 'year' ? cls.planAmount / 12 : cls.planAmount;
+
+    // "active" (paying) = trial already ended by this day.
+    const trialEndMs = cls.trialEndAt ? Date.parse(cls.trialEndAt) : startedMs;
+    if (trialEndMs <= dayEndMs) active++;
+  }
+
+  return { total, free: total - gold - silver, silver, gold, active, mrr: mrrCents / 100 };
+}
+
+function upsertSnapshotRow(
+  db: Database.Database,
+  date: string,
+  s: DerivedSnapshot,
+  takenAt: string,
+  overwrite: boolean,
+): void {
+  const conflict = overwrite
+    ? `ON CONFLICT(date) DO UPDATE SET
+         total=excluded.total, free_count=excluded.free_count, silver_count=excluded.silver_count,
+         gold_count=excluded.gold_count, active_count=excluded.active_count,
+         mrr=excluded.mrr, arr=excluded.arr, taken_at=excluded.taken_at`
+    : `ON CONFLICT(date) DO NOTHING`;
   db.prepare(
     `INSERT INTO metrics_snapshots (date, total, free_count, silver_count, gold_count, active_count, mrr, arr, taken_at)
      VALUES (@date, @total, @free, @silver, @gold, @active, @mrr, @arr, @taken_at)
-     ON CONFLICT(date) DO UPDATE SET
-        total=excluded.total, free_count=excluded.free_count, silver_count=excluded.silver_count,
-        gold_count=excluded.gold_count, active_count=excluded.active_count,
-        mrr=excluded.mrr, arr=excluded.arr, taken_at=excluded.taken_at`,
+     ${conflict}`,
   ).run({
     date,
-    total,
-    free,
-    silver,
-    gold,
-    active,
-    mrr,
-    arr: mrr * 12,
-    taken_at: nowIso,
+    total: s.total,
+    free: s.free,
+    silver: s.silver,
+    gold: s.gold,
+    active: s.active,
+    mrr: s.mrr,
+    arr: s.mrr * 12,
+    taken_at: takenAt,
   });
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Fill the trend series from the genesis date to today:
+ *  - past days: reconstructed once (INSERT OR IGNORE, never overwritten later)
+ *  - today: upserted every sync with the live value
+ */
+function storeSnapshot(db: Database.Database, members: GhostMember[], nowIso: string): void {
+  const today = nowIso.slice(0, 10); // YYYY-MM-DD GMT
+  const nowMs = Date.parse(nowIso);
+  const genesisMs = Date.parse(config.genesisDate + 'T00:00:00.000Z');
+  const todayStartMs = Date.parse(today + 'T00:00:00.000Z');
+  if (Number.isNaN(genesisMs)) return; // bad GENESIS_DATE; skip rather than crash
+
+  for (let dayStart = genesisMs; dayStart <= todayStartMs; dayStart += DAY_MS) {
+    const date = new Date(dayStart).toISOString().slice(0, 10);
+    const dayEndMs = Math.min(dayStart + DAY_MS - 1, nowMs);
+    const snap = deriveSnapshotForDay(members, dayEndMs);
+    upsertSnapshotRow(db, date, snap, nowIso, date === today);
+  }
 }
 
 function syncMember(
@@ -261,7 +314,7 @@ export async function runSync(): Promise<SyncResult> {
         if (r.resumed) resumes++;
         if (r.milestone) milestones++;
       }
-      storeSnapshot(db, nowIso);
+      storeSnapshot(db, all, nowIso);
     });
     tx(members);
 

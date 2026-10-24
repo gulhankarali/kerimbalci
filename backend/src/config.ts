@@ -33,6 +33,8 @@ export const config = {
   milestoneMonths: num('BOOK_MILESTONE_MONTHS', 12),
   trialDays: num('TRIAL_DAYS', 7),
   cronTimeGmt: process.env.CRON_TIME_GMT || '06:00',
+  // "Day zero" for trend charts: history is reconstructed from this date forward.
+  genesisDate: process.env.GENESIS_DATE || '2026-10-15',
   dbPath: path.isAbsolute(rawDbPath) ? rawDbPath : path.join(BACKEND_ROOT, rawDbPath),
   port: num('PORT', 4000),
 };
