@@ -7,6 +7,7 @@ export interface Member {
   sub_status: string | null;
   interval: string | null;
   trial_end_at: string | null;
+  current_period_end: string | null;
   accrued_days: number;
   accrued_months: number;
   current_state: string;
@@ -43,6 +44,7 @@ export interface Revenue {
   arr: number;
   currency: string;
   subscriberCount: number;
+  cancelingCount: number;
 }
 
 export interface Snapshot {

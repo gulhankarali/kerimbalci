@@ -46,6 +46,9 @@ export function MembersTable({ members, milestoneMonths }: Props) {
             <td>{m.interval || '—'}</td>
             <td>
               <StateBadge state={m.current_state} />
+              {m.current_state === 'canceling' && (
+                <div className="muted">ends {formatDate(m.current_period_end)}</div>
+              )}
             </td>
             <td className="num strong">{formatAge(m.accrued_months)}</td>
             <td className="progress-col">

@@ -13,7 +13,10 @@ export function StatCards({ stats }: { stats: Stats }) {
         <div className="card card--revenue">
           <div className="card__label">MRR · aylık yinelenen gelir</div>
           <div className="card__value">{formatMoney(revenue.mrr, revenue.currency)}</div>
-          <div className="card__sub">{revenue.subscriberCount} abone (trial dahil)</div>
+          <div className="card__sub">
+            {revenue.subscriberCount} abone (trial dahil)
+            {revenue.cancelingCount > 0 && ` · ${revenue.cancelingCount} iptal sürecinde, hariç`}
+          </div>
         </div>
         <div className="card card--revenue">
           <div className="card__label">ARR · yıllık yinelenen gelir</div>
@@ -44,16 +47,17 @@ export function StatCards({ stats }: { stats: Stats }) {
           <div className="card__value">{stats.dueForBook.length}</div>
           <div className="card__sub">≥ {stats.milestoneMonths} ay ödeme</div>
         </div>
-        <div className="card">
-          <div className="card__label">Toplam üye</div>
-          <div className="card__value">{stats.total}</div>
-        </div>
         {STATE_ORDER.filter((s) => counts[s]).map((s) => (
           <div className="card" key={s}>
             <div className="card__label">{STATE_LABELS[s] || s}</div>
             <div className="card__value">{counts[s]}</div>
           </div>
         ))}
+        {/* Last, as the sum of the state cards before it. */}
+        <div className="card">
+          <div className="card__label">Toplam üye</div>
+          <div className="card__value">{stats.total}</div>
+        </div>
       </div>
     </>
   );

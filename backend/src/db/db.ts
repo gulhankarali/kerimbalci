@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS members (
   updated_at        TEXT,
   accrued_days      REAL DEFAULT 0,    -- cumulative paid time, derived from paid_periods
   accrued_months    REAL DEFAULT 0,
-  current_state     TEXT,              -- free | in_trial | active | paused | comped | completed
+  current_state     TEXT,              -- free | in_trial | active | canceling | paused | comped | completed
   book_sent         INTEGER DEFAULT 0,
   book_sent_at      TEXT,
   last_synced_at    TEXT
@@ -89,6 +89,8 @@ const MIGRATIONS: [string, string, string][] = [
   ['members', 'country_code', 'TEXT'], // ISO country from Ghost geolocation
   ['members', 'region', 'TEXT'], // USA | EU | UK | Other
   ['metrics_snapshots', 'bronz_count', 'INTEGER'], // Bronz tier (Ghost tier name is Turkish)
+  ['members', 'cancel_at_period_end', 'INTEGER DEFAULT 0'], // canceled in Ghost, still paid until period end
+  ['members', 'current_period_end', 'TEXT'], // when the current paid period ends
 ];
 
 function runMigrations(db: Database.Database): void {

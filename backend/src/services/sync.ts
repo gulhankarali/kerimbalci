@@ -78,15 +78,18 @@ function upsertMemberBase(
 
   db.prepare(
     `INSERT INTO members (id, email, name, status, comped, tier, sub_status, interval,
-        plan_amount, currency, country_code, region, trial_end_at, created_at, updated_at, last_synced_at)
+        plan_amount, currency, country_code, region, trial_end_at, cancel_at_period_end, current_period_end,
+        created_at, updated_at, last_synced_at)
      VALUES (@id, @email, @name, @status, @comped, @tier, @sub_status, @interval,
-        @plan_amount, @currency, @country_code, @region, @trial_end_at, @created_at, @updated_at, @last_synced_at)
+        @plan_amount, @currency, @country_code, @region, @trial_end_at, @cancel_at_period_end, @current_period_end,
+        @created_at, @updated_at, @last_synced_at)
      ON CONFLICT(id) DO UPDATE SET
         email=excluded.email, name=excluded.name, status=excluded.status, comped=excluded.comped,
         tier=excluded.tier, sub_status=excluded.sub_status, interval=excluded.interval,
         plan_amount=excluded.plan_amount, currency=excluded.currency,
         country_code=excluded.country_code, region=excluded.region,
-        trial_end_at=excluded.trial_end_at, created_at=excluded.created_at, updated_at=excluded.updated_at,
+        trial_end_at=excluded.trial_end_at, cancel_at_period_end=excluded.cancel_at_period_end,
+        current_period_end=excluded.current_period_end, created_at=excluded.created_at, updated_at=excluded.updated_at,
         last_synced_at=excluded.last_synced_at`,
   ).run({
     id: member.id,
@@ -102,6 +105,8 @@ function upsertMemberBase(
     country_code: countryCode,
     region,
     trial_end_at: cls.trialEndAt,
+    cancel_at_period_end: cls.cancelAtPeriodEnd ? 1 : 0,
+    current_period_end: cls.currentPeriodEnd,
     created_at: member.created_at,
     updated_at: member.updated_at,
     last_synced_at: nowIso,
@@ -125,8 +130,12 @@ interface DerivedSnapshot {
  * own start dates — it cannot see members who churned and were deleted, nor
  * past tier changes. For a brand-new base with no churn it is an accurate
  * backfill; live days captured going forward are exact.
+ *
+ * Comped (gifted) members count toward `total` only. Members who canceled but
+ * are still in their paid period were paying on past days, so they are left
+ * out of `active`/MRR only on the live (today) row.
  */
-function deriveSnapshotForDay(members: GhostMember[], dayEndMs: number): DerivedSnapshot {
+function deriveSnapshotForDay(members: GhostMember[], dayEndMs: number, isToday: boolean): DerivedSnapshot {
   let total = 0;
   let gold = 0;
   let silver = 0;
@@ -137,6 +146,7 @@ function deriveSnapshotForDay(members: GhostMember[], dayEndMs: number): Derived
   for (const m of members) {
     if (Date.parse(m.created_at) > dayEndMs) continue; // not a member yet on this day
     total++;
+    if (m.comped || m.status === 'comped') continue;
 
     const cls = classifyMember(m);
     const liveNow = cls.subStatus === 'active' || cls.subStatus === 'trialing';
@@ -149,6 +159,8 @@ function deriveSnapshotForDay(members: GhostMember[], dayEndMs: number): Derived
     if (cls.tier === 'Gold') gold++;
     else if (cls.tier === 'Silver') silver++;
     else if (cls.tier === 'Bronz') bronz++;
+
+    if (isToday && cls.cancelAtPeriodEnd) continue; // will not renew
 
     // MRR counts trialing too ("regardless of trialing").
     if (cls.planAmount) mrrCents += cls.interval === 'year' ? cls.planAmount / 12 : cls.planAmount;
@@ -198,8 +210,15 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * Fill the trend series from the genesis date to today:
  *  - past days: reconstructed once (INSERT OR IGNORE, never overwritten later)
  *  - today: upserted every sync with the live value
+ * `rebuildHistory` overwrites past days too — a one-off after a metric
+ * definition changes (run `npm run sync -- --rebuild-history`).
  */
-function storeSnapshot(db: Database.Database, members: GhostMember[], nowIso: string): void {
+function storeSnapshot(
+  db: Database.Database,
+  members: GhostMember[],
+  nowIso: string,
+  rebuildHistory: boolean,
+): void {
   const today = nowIso.slice(0, 10); // YYYY-MM-DD GMT
   const nowMs = Date.parse(nowIso);
   const genesisMs = Date.parse(config.genesisDate + 'T00:00:00.000Z');
@@ -209,8 +228,8 @@ function storeSnapshot(db: Database.Database, members: GhostMember[], nowIso: st
   for (let dayStart = genesisMs; dayStart <= todayStartMs; dayStart += DAY_MS) {
     const date = new Date(dayStart).toISOString().slice(0, 10);
     const dayEndMs = Math.min(dayStart + DAY_MS - 1, nowMs);
-    const snap = deriveSnapshotForDay(members, dayEndMs);
-    upsertSnapshotRow(db, date, snap, nowIso, date === today);
+    const snap = deriveSnapshotForDay(members, dayEndMs, date === today);
+    upsertSnapshotRow(db, date, snap, nowIso, rebuildHistory || date === today);
     // Rows written before Bronz was tracked counted Bronz members as free.
     // Fix only those tier columns once; leave the rest of the history as-is.
     db.prepare(
@@ -299,7 +318,7 @@ function syncMember(
  * Full sync: pull all members from Ghost, update the ledger, detect transitions.
  * Idempotent — safe to run many times per day.
  */
-export async function runSync(): Promise<SyncResult> {
+export async function runSync(opts: { rebuildHistory?: boolean } = {}): Promise<SyncResult> {
   const db = getDb();
   const startedAt = new Date().toISOString();
   const t0 = Date.now();
@@ -324,7 +343,7 @@ export async function runSync(): Promise<SyncResult> {
         if (r.resumed) resumes++;
         if (r.milestone) milestones++;
       }
-      storeSnapshot(db, all, nowIso);
+      storeSnapshot(db, all, nowIso, !!opts.rebuildHistory);
     });
     tx(members);
 

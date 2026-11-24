@@ -11,6 +11,9 @@ export interface MemberClassification {
   isPaying: boolean; // currently accruing paid time
   isTrialing: boolean;
   trialEndAt: string | null; // when the paid clock starts
+  // Canceled in Ghost but Stripe keeps it `active` until the period ends.
+  cancelAtPeriodEnd: boolean;
+  currentPeriodEnd: string | null;
   interval: string | null; // month | year
   tier: string | null;
   planAmount: number | null; // subscription price in minor units (cents)
@@ -43,6 +46,8 @@ export function classifyMember(member: GhostMember): MemberClassification {
     isPaying: !comped && subStatus != null && PAYING_STATUSES.has(subStatus),
     isTrialing: subStatus != null && TRIAL_STATUSES.has(subStatus),
     trialEndAt: sub?.trial_end_at ?? null,
+    cancelAtPeriodEnd: !!sub?.cancel_at_period_end,
+    currentPeriodEnd: sub?.current_period_end ?? null,
     interval: sub?.plan?.interval ?? null,
     tier: sub?.tier?.name ?? member.tiers?.[0]?.name ?? null,
     planAmount: sub?.plan?.amount ?? null,
@@ -62,6 +67,8 @@ export function deriveState(
 ): string {
   if (accruedMonths >= milestoneMonths) return 'completed';
   if (member.comped || member.status === 'comped') return 'comped';
+  // Still paid up (time keeps accruing) but will not renew.
+  if ((cls.isPaying || cls.isTrialing) && cls.cancelAtPeriodEnd) return 'canceling';
   if (cls.isPaying) return 'active';
   if (cls.isTrialing) return 'in_trial';
   if (cls.subStatus) return 'paused'; // canceled / past_due / unpaid / etc.

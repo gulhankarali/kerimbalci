@@ -26,7 +26,7 @@ router.get('/members', (req, res) => {
     where.push('current_state = ?');
     params.push(state);
   }
-  const sql = `SELECT id, email, name, status, tier, sub_status, interval, trial_end_at,
+  const sql = `SELECT id, email, name, status, tier, sub_status, interval, trial_end_at, current_period_end,
       accrued_days, accrued_months, current_state, book_sent, book_sent_at, last_synced_at
       FROM members
       ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
@@ -75,21 +75,35 @@ router.get('/stats', (_req, res) => {
     .prepare('SELECT * FROM sync_runs ORDER BY id DESC LIMIT 1')
     .get();
 
-  // Subscriber base = anyone with a live subscription (active or trialing).
-  // Revenue counts trialing members too ("regardless of trialing").
-  const subscriberRows = db
+  // Subscriber base = anyone with a live subscription (active or trialing),
+  // excluding comped (gifted) members, whose Ghost "Complimentary" sub is not revenue.
+  // Revenue counts trialing members too ("regardless of trialing"), but not
+  // members who canceled and are only running out their paid period.
+  const liveRows = db
     .prepare(
-      `SELECT tier, interval, plan_amount, currency
-       FROM members WHERE sub_status IN ('active', 'trialing')`,
+      `SELECT tier, interval, plan_amount, currency, cancel_at_period_end
+       FROM members
+       WHERE sub_status IN ('active', 'trialing') AND comped = 0 AND status <> 'comped'`,
     )
-    .all() as { tier: string | null; interval: string | null; plan_amount: number | null; currency: string | null }[];
+    .all() as {
+    tier: string | null;
+    interval: string | null;
+    plan_amount: number | null;
+    currency: string | null;
+    cancel_at_period_end: number | null;
+  }[];
 
+  // Tier counts still include canceling members: they hold the tier until the period ends.
   const byTier: Record<string, number> = {};
+  for (const r of liveRows) {
+    const tier = r.tier || 'Unknown';
+    byTier[tier] = (byTier[tier] || 0) + 1;
+  }
+
+  const subscriberRows = liveRows.filter((r) => !r.cancel_at_period_end);
   let mrrCents = 0;
   const currencies = new Set<string>();
   for (const r of subscriberRows) {
-    const tier = r.tier || 'Unknown';
-    byTier[tier] = (byTier[tier] || 0) + 1;
     if (r.plan_amount) {
       // Normalise any plan to a monthly figure.
       const monthly = r.interval === 'year' ? r.plan_amount / 12 : r.plan_amount;
@@ -103,6 +117,7 @@ router.get('/stats', (_req, res) => {
     arr: mrr * 12,
     currency: currencies.size === 1 ? [...currencies][0] : currencies.size === 0 ? 'USD' : 'MIXED',
     subscriberCount: subscriberRows.length,
+    cancelingCount: liveRows.length - subscriberRows.length,
   };
 
   res.json({
