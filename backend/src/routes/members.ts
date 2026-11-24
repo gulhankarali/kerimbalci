@@ -56,10 +56,18 @@ router.get('/stats', (_req, res) => {
     .prepare('SELECT current_state AS state, COUNT(*) AS n FROM members GROUP BY current_state')
     .all();
   const total = db.prepare('SELECT COUNT(*) AS n FROM members').get() as { n: number };
+  // Bronz members earn a 50%-off coupon at the milestone instead of a book.
   const due = db
     .prepare(
       `SELECT id, name, email, accrued_months FROM members
-       WHERE accrued_months >= ? AND book_sent = 0
+       WHERE accrued_months >= ? AND book_sent = 0 AND COALESCE(tier, '') <> 'Bronz'
+       ORDER BY accrued_months DESC`,
+    )
+    .all(config.milestoneMonths);
+  const couponDue = db
+    .prepare(
+      `SELECT id, name, email, accrued_months FROM members
+       WHERE accrued_months >= ? AND book_sent = 0 AND tier = 'Bronz'
        ORDER BY accrued_months DESC`,
     )
     .all(config.milestoneMonths);
@@ -103,6 +111,7 @@ router.get('/stats', (_req, res) => {
     byTier,
     revenue,
     dueForBook: due,
+    dueForCoupon: couponDue,
     milestoneMonths: config.milestoneMonths,
     lastSync,
   });

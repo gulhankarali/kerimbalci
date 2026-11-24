@@ -1,13 +1,15 @@
 # E-posta Taslakları — Book Reward
 
 > **Durum:** TASLAK. Metinler gözden geçirilip onaylanacak. `{{...}}` alanları sistem doldurur.
-> Üye tier bilgisi (`Silver` / `Gold`) DB'de mevcut; e-postalar tier'a göre seçilir.
+> Üye tier bilgisi (`Bronz` / `Silver` / `Gold`) DB'de mevcut; e-postalar tier'a göre seçilir.
+> **Bronz üyeler kitap almaz** — kitap e-postaları (1, 2, 3, 4) Bronz'a gitmez; Bronz için 5) kupon e-postası kullanılır.
 
 Değişken alanlar:
 - `{{name}}` — üye adı
 - `{{months}}` — tamamlanan ödeme ayı
 - `{{remaining}}` — kitaba kalan ay
-- `{{tier}}` — Silver / Gold
+- `{{tier}}` — Bronz / Silver / Gold
+- `{{coupon_code}}` — Bronz %50 kitap indirim kuponu (üretim yöntemi netleşince)
 - `{{year}}` — kaçıncı yıl ödülü (1, 2, …)
 - `{{book}}` / `{{book1}}` / `{{book2}}` — kitap adları
 - `{{selection_link}}` — Silver seçim bağlantısı (akış netleşince)
@@ -67,7 +69,7 @@ Kerim Balcı
 
 ## 3) ADMIN uyarısı — "kitap gönder" (gulhan.karali@gmail.com)
 
-**Tetikleyici:** Herhangi bir üye 12 ayı doldurur (günlük kontrol, GMT).
+**Tetikleyici:** Silver veya Gold üye 12 ayı doldurur (günlük kontrol, GMT). Bronz hariç.
 **Kime:** yöneticiye (sana)
 **Konu:** 📚 Kitap gönderilecek: {{name}} ({{tier}})
 
@@ -89,7 +91,7 @@ Bu uyarı üye başına bir kez gönderilir.
 
 ## 4) MÜŞTERİ — "neredeyse tamam" hatırlatma (pause durumunda)
 
-**Tetikleyici:** Üye iptal/iade/ödeme-başarısız nedeniyle duraklar (bir kez).
+**Tetikleyici:** Silver/Gold üye iptal/iade/ödeme-başarısız nedeniyle duraklar (bir kez). Bronz hariç.
 **Kime:** üyeye
 **Konu:** Kitabınıza çok az kaldı — {{remaining}} ay
 
@@ -108,6 +110,30 @@ Kerim Balcı
 
 ---
 
+## 5) BRONZ — %50 indirim kuponu e-postası (müşteriye)
+
+**Tetikleyici:** Bronz üye 12 aylık ödemeyi tamamlar (dashboard'da "Earned the 50% coupon" listesi).
+**Kime:** üyeye
+**Konu:** 🎟️ Bir yıldır bizimlesiniz — kitabınızda %50 indirim
+
+```
+Merhaba {{name}},
+
+{{months}} aydır kerimbalci.com'u desteklediğiniz için çok teşekkür ederiz.
+Bronz üyemiz olarak dilediğiniz bir kitapta kullanabileceğiniz
+%50 indirim kuponunuz hazır:
+
+  Kupon kodu: {{coupon_code}}
+
+Desteğiniz için yeniden teşekkürler,
+Kerim Balcı
+```
+
+> **Şimdilik gönderilmiyor.** Kupon kodunun nasıl üretileceği (tek kod mu, üyeye özel mi,
+> geçerlilik süresi) netleşene kadar bu e-posta taslak kalır.
+
+---
+
 ## Açık sorular (metinleri etkiler)
 
 1. **3. yıl ve sonrası** — sadece 2 kitap var; Silver 2 yılda ikisini alınca biter mi,
@@ -116,5 +142,5 @@ Kerim Balcı
 3. **Silver seçimi nasıl?** — seçim bağlantısı (dashboard/web) mi, yoksa e-postayı
    yanıtlayarak mı? `{{selection_link}}` buna göre netleşecek.
 4. **Gönderen adı/imza** — "Kerim Balcı" uygun mu, yoksa farklı imza mı?
+5. **Bronz kuponu** — tek ortak kod mu, üyeye özel kod mu? Geçerlilik süresi? Her yıl mı, bir kez mi?
 ```
-

@@ -68,6 +68,7 @@ export interface Stats {
   byTier: Record<string, number>;
   revenue: Revenue;
   dueForBook: DueMember[];
+  dueForCoupon: DueMember[];
   milestoneMonths: number;
   lastSync: SyncRun | null;
 }

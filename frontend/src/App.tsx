@@ -86,6 +86,19 @@ export function App() {
         </div>
       )}
 
+      {stats && stats.dueForCoupon.length > 0 && (
+        <div className="due-panel">
+          <h2>🎟️ Earned the 50% coupon (Bronz)</h2>
+          <ul>
+            {stats.dueForCoupon.map((d) => (
+              <li key={d.id}>
+                <strong>{d.name || d.email}</strong> — {d.accrued_months.toFixed(1)} months paid
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="toolbar">
         <div className="filters">
           {FILTERS.map((f) => (
