@@ -16,6 +16,7 @@ export function StatCards({ stats }: { stats: Stats }) {
           <div className="card__sub">
             {revenue.subscriberCount} abone (trial dahil)
             {revenue.cancelingCount > 0 && ` · ${revenue.cancelingCount} iptal sürecinde, hariç`}
+            {revenue.pastDueCount > 0 && ` · ${revenue.pastDueCount} ödeme sorunu, hariç`}
           </div>
         </div>
         <div className="card card--revenue">

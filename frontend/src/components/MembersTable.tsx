@@ -49,6 +49,7 @@ export function MembersTable({ members, milestoneMonths }: Props) {
               {m.current_state === 'canceling' && (
                 <div className="muted">ends {formatDate(m.current_period_end)}</div>
               )}
+              {m.current_state === 'past_due' && <div className="muted">Stripe yeniden deniyor</div>}
             </td>
             <td className="num strong">{formatAge(m.accrued_months)}</td>
             <td className="progress-col">

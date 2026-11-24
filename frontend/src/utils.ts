@@ -11,6 +11,7 @@ export function formatAge(months: number): string {
 export const STATE_LABELS: Record<string, string> = {
   active: 'Active (paying)',
   canceling: 'Canceling',
+  past_due: 'Ödeme sorunu',
   in_trial: 'In trial',
   paused: 'Paused',
   comped: 'Comped',
@@ -18,7 +19,7 @@ export const STATE_LABELS: Record<string, string> = {
   completed: 'Completed',
 };
 
-export const STATE_ORDER = ['completed', 'active', 'canceling', 'paused', 'in_trial', 'comped', 'free'];
+export const STATE_ORDER = ['completed', 'active', 'canceling', 'past_due', 'paused', 'in_trial', 'comped', 'free'];
 
 export function formatDate(iso: string | null): string {
   if (!iso) return '—';

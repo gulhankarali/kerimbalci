@@ -132,8 +132,8 @@ interface DerivedSnapshot {
  * backfill; live days captured going forward are exact.
  *
  * Comped (gifted) members count toward `total` only. Members who canceled but
- * are still in their paid period were paying on past days, so they are left
- * out of `active`/MRR only on the live (today) row.
+ * are still in their paid period, or whose renewal is past due, were paying on
+ * past days, so they are left out of `active`/MRR only on the live (today) row.
  */
 function deriveSnapshotForDay(members: GhostMember[], dayEndMs: number, isToday: boolean): DerivedSnapshot {
   let total = 0;
@@ -149,7 +149,7 @@ function deriveSnapshotForDay(members: GhostMember[], dayEndMs: number, isToday:
     if (m.comped || m.status === 'comped') continue;
 
     const cls = classifyMember(m);
-    const liveNow = cls.subStatus === 'active' || cls.subStatus === 'trialing';
+    const liveNow = cls.subStatus === 'active' || cls.subStatus === 'trialing' || cls.isPastDue;
     if (!liveNow) continue; // only project members who currently hold a subscription
 
     const sub = primarySubscription(m);
@@ -160,7 +160,7 @@ function deriveSnapshotForDay(members: GhostMember[], dayEndMs: number, isToday:
     else if (cls.tier === 'Silver') silver++;
     else if (cls.tier === 'Bronz') bronz++;
 
-    if (isToday && cls.cancelAtPeriodEnd) continue; // will not renew
+    if (isToday && (cls.cancelAtPeriodEnd || cls.isPastDue)) continue; // will not renew / not collecting
 
     // MRR counts trialing too ("regardless of trialing").
     if (cls.planAmount) mrrCents += cls.interval === 'year' ? cls.planAmount / 12 : cls.planAmount;
@@ -250,8 +250,10 @@ function syncMember(
   const open = getOpenPeriod(db, member.id);
   let paused = false;
   let resumed = false;
+  // past_due keeps the period open while Stripe retries the payment.
+  const accruing = cls.isPaying || cls.isPastDue;
 
-  if (cls.isPaying && !open) {
+  if (accruing && !open) {
     // Opening a paid period: either first observation or a resume.
     const priorPeriods = countPeriods(db, member.id);
     let start = nowIso;
@@ -269,7 +271,7 @@ function syncMember(
         'INSERT INTO events (member_id, type, occurred_at, detected_at, detail) VALUES (?, ?, ?, ?, ?)',
       ).run(member.id, 'resume', nowIso, nowIso, `status=${cls.subStatus}`);
     }
-  } else if (!cls.isPaying && open) {
+  } else if (!accruing && open) {
     // Close the open period. Detection granularity is daily (see PLAN risks).
     db.prepare('UPDATE paid_periods SET period_end = ? WHERE id = ?').run(nowIso, open.id);
     // Only a genuine stop-paying transition is a "pause" (which later triggers a

@@ -6,7 +6,7 @@ import { MembersTable } from './components/MembersTable';
 import { Charts } from './components/Charts';
 import { STATE_LABELS } from './utils';
 
-const FILTERS = ['all', 'active', 'in_trial', 'paused', 'completed', 'comped', 'free'];
+const FILTERS = ['all', 'active', 'in_trial', 'past_due', 'paused', 'completed', 'comped', 'free'];
 
 export function App() {
   const [stats, setStats] = useState<Stats | null>(null);

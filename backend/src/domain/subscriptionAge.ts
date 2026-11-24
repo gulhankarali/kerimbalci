@@ -5,11 +5,17 @@ import { DAYS_PER_MONTH } from '../config';
 const PAYING_STATUSES = new Set(['active']);
 // Statuses that mean the member is in the free trial (not yet paying).
 const TRIAL_STATUSES = new Set(['trialing']);
+// A renewal payment failed and Stripe is retrying. Ghost still treats the
+// member as paid, so time keeps accruing until Stripe gives up.
+const PAST_DUE_STATUSES = new Set(['past_due']);
+// Any status that means the subscription is still alive.
+const LIVE_STATUSES = new Set([...PAYING_STATUSES, ...TRIAL_STATUSES, ...PAST_DUE_STATUSES]);
 
 export interface MemberClassification {
   subStatus: string | null; // latest subscription status
   isPaying: boolean; // currently accruing paid time
   isTrialing: boolean;
+  isPastDue: boolean; // payment failed, Stripe retrying; still accruing
   trialEndAt: string | null; // when the paid clock starts
   // Canceled in Ghost but Stripe keeps it `active` until the period ends.
   cancelAtPeriodEnd: boolean;
@@ -21,12 +27,15 @@ export interface MemberClassification {
 }
 
 /**
- * Pick the most relevant subscription for a member: prefer `current_subscription`,
- * else the most recently started entry in `subscriptions`.
+ * Pick the most relevant subscription for a member: a live one (active /
+ * trialing / past_due) first, then `current_subscription`, else the most
+ * recently started entry in `subscriptions`.
  */
 export function primarySubscription(member: GhostMember): GhostSubscription | null {
-  if (member.current_subscription) return member.current_subscription;
   const subs = member.subscriptions || [];
+  const live = subs.find((s) => LIVE_STATUSES.has(s.status));
+  if (live) return live;
+  if (member.current_subscription) return member.current_subscription;
   if (subs.length === 0) return null;
   return [...subs].sort((a, b) => {
     const ta = a.start_date ? Date.parse(a.start_date) : 0;
@@ -45,6 +54,7 @@ export function classifyMember(member: GhostMember): MemberClassification {
     subStatus,
     isPaying: !comped && subStatus != null && PAYING_STATUSES.has(subStatus),
     isTrialing: subStatus != null && TRIAL_STATUSES.has(subStatus),
+    isPastDue: !comped && subStatus != null && PAST_DUE_STATUSES.has(subStatus),
     trialEndAt: sub?.trial_end_at ?? null,
     cancelAtPeriodEnd: !!sub?.cancel_at_period_end,
     currentPeriodEnd: sub?.current_period_end ?? null,
@@ -71,7 +81,8 @@ export function deriveState(
   if ((cls.isPaying || cls.isTrialing) && cls.cancelAtPeriodEnd) return 'canceling';
   if (cls.isPaying) return 'active';
   if (cls.isTrialing) return 'in_trial';
-  if (cls.subStatus) return 'paused'; // canceled / past_due / unpaid / etc.
+  if (cls.isPastDue) return 'past_due';
+  if (cls.subStatus) return 'paused'; // canceled / unpaid / etc.
   return 'free';
 }
 

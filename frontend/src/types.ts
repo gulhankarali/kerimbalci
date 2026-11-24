@@ -45,6 +45,7 @@ export interface Revenue {
   currency: string;
   subscriberCount: number;
   cancelingCount: number;
+  pastDueCount: number;
 }
 
 export interface Snapshot {

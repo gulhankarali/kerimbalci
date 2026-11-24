@@ -78,29 +78,32 @@ router.get('/stats', (_req, res) => {
   // Subscriber base = anyone with a live subscription (active or trialing),
   // excluding comped (gifted) members, whose Ghost "Complimentary" sub is not revenue.
   // Revenue counts trialing members too ("regardless of trialing"), but not
-  // members who canceled and are only running out their paid period.
+  // members who canceled and are only running out their paid period, nor
+  // past_due members whose renewal payment failed.
   const liveRows = db
     .prepare(
-      `SELECT tier, interval, plan_amount, currency, cancel_at_period_end
+      `SELECT tier, sub_status, interval, plan_amount, currency, cancel_at_period_end
        FROM members
-       WHERE sub_status IN ('active', 'trialing') AND comped = 0 AND status <> 'comped'`,
+       WHERE sub_status IN ('active', 'trialing', 'past_due') AND comped = 0 AND status <> 'comped'`,
     )
     .all() as {
     tier: string | null;
+    sub_status: string;
     interval: string | null;
     plan_amount: number | null;
     currency: string | null;
     cancel_at_period_end: number | null;
   }[];
 
-  // Tier counts still include canceling members: they hold the tier until the period ends.
+  // Tier counts still include canceling and past_due members: they hold the tier for now.
   const byTier: Record<string, number> = {};
   for (const r of liveRows) {
     const tier = r.tier || 'Unknown';
     byTier[tier] = (byTier[tier] || 0) + 1;
   }
 
-  const subscriberRows = liveRows.filter((r) => !r.cancel_at_period_end);
+  const pastDueCount = liveRows.filter((r) => r.sub_status === 'past_due').length;
+  const subscriberRows = liveRows.filter((r) => !r.cancel_at_period_end && r.sub_status !== 'past_due');
   let mrrCents = 0;
   const currencies = new Set<string>();
   for (const r of subscriberRows) {
@@ -117,7 +120,8 @@ router.get('/stats', (_req, res) => {
     arr: mrr * 12,
     currency: currencies.size === 1 ? [...currencies][0] : currencies.size === 0 ? 'USD' : 'MIXED',
     subscriberCount: subscriberRows.length,
-    cancelingCount: liveRows.length - subscriberRows.length,
+    cancelingCount: liveRows.length - subscriberRows.length - pastDueCount,
+    pastDueCount,
   };
 
   res.json({

@@ -79,6 +79,7 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 .badge--active { background: #e4f6ec; color: var(--green); }
 .badge--in_trial { background: var(--accent-soft); color: var(--accent); }
 .badge--canceling { background: #fff3d6; color: var(--amber); }
+.badge--past_due { background: #ffe8d9; color: #b4530f; }
 .badge--paused { background: #fdecec; color: var(--red); }
 .badge--comped { background: #efe9fb; color: var(--purple); }
 .badge--free { background: #f0f2f4; color: var(--muted); }

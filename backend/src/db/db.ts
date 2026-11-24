@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS members (
   updated_at        TEXT,
   accrued_days      REAL DEFAULT 0,    -- cumulative paid time, derived from paid_periods
   accrued_months    REAL DEFAULT 0,
-  current_state     TEXT,              -- free | in_trial | active | canceling | paused | comped | completed
+  current_state     TEXT,              -- free | in_trial | active | canceling | past_due | paused | comped | completed
   book_sent         INTEGER DEFAULT 0,
   book_sent_at      TEXT,
   last_synced_at    TEXT
