@@ -4,6 +4,7 @@ import type { Member, Stats } from './types';
 import { StatCards } from './components/StatCards';
 import { MembersTable } from './components/MembersTable';
 import { Charts } from './components/Charts';
+import { SeoCharts } from './components/SeoCharts';
 import { STATE_LABELS } from './utils';
 
 const FILTERS = ['all', 'active', 'in_trial', 'past_due', 'paused', 'completed', 'comped', 'free'];
@@ -72,6 +73,8 @@ export function App() {
       {stats && <StatCards stats={stats} />}
 
       <Charts key={reloadToken} />
+
+      <SeoCharts key={`seo-${reloadToken}`} />
 
       {stats && stats.dueForBook.length > 0 && (
         <div className="due-panel">

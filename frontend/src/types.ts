@@ -75,3 +75,29 @@ export interface Stats {
   milestoneMonths: number;
   lastSync: SyncRun | null;
 }
+
+export interface SeoMetric {
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+}
+
+export interface SeoPage extends SeoMetric {
+  path: string;
+  url: string;
+  title: string;
+  isPost: boolean;
+}
+
+export interface SeoOverview {
+  configured: boolean;
+  error?: string;
+  range: { start: string; end: string; days: number };
+  totals: SeoMetric;
+  daily: { date: string; clicks: number; impressions: number; signups: number }[];
+  pages: SeoPage[];
+  queries: (SeoMetric & { query: string })[];
+  posts: { published: number; visible: number };
+  brand: { clicks: number; impressions: number; reportedClicks: number; reportedImpressions: number };
+}

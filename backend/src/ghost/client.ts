@@ -89,3 +89,26 @@ export async function fetchAllMembers(): Promise<GhostMember[]> {
   }
   return out;
 }
+
+export interface GhostPost {
+  id: string;
+  title: string;
+  url: string;
+  published_at: string | null;
+}
+
+/** Fetch every published post or page (title + canonical URL), used to label SEO pages. */
+export async function fetchPublished(kind: 'posts' | 'pages'): Promise<GhostPost[]> {
+  const out: GhostPost[] = [];
+  let page = 1;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const qs = `?limit=100&page=${page}&filter=${encodeURIComponent('status:published')}&fields=id,title,url,published_at`;
+    const data = await adminGet<Record<string, GhostPost[]> & { meta?: MembersResponse['meta'] }>(`/${kind}/${qs}`);
+    out.push(...(data[kind] as GhostPost[]));
+    const next = data.meta?.pagination?.next;
+    if (!next) break;
+    page = next;
+  }
+  return out;
+}

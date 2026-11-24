@@ -1,5 +1,6 @@
 import express from 'express';
 import { router as membersRouter } from './routes/members';
+import { router as seoRouter } from './routes/seo';
 import { getDb } from './db/db';
 
 export function createServer() {
@@ -21,6 +22,7 @@ export function createServer() {
   });
 
   app.use('/api', membersRouter);
+  app.use('/api', seoRouter);
 
   return app;
 }

@@ -1,4 +1,4 @@
-import type { Member, Stats, Snapshot, RegionCount } from './types';
+import type { Member, Stats, Snapshot, RegionCount, SeoOverview } from './types';
 
 // Same-origin /api paths; Vite dev server proxies them to the backend.
 async function get<T>(path: string): Promise<T> {
@@ -25,4 +25,5 @@ export const api = {
   sync: () => post<{ ok: boolean; result?: unknown; error?: string }>('/api/sync'),
   timeseries: () => get<{ snapshots: Snapshot[] }>('/api/metrics/timeseries'),
   regions: () => get<{ regions: RegionCount[] }>('/api/metrics/regions'),
+  seo: (days: number) => get<SeoOverview>(`/api/seo/overview?days=${days}`),
 };

@@ -3,6 +3,12 @@
 .env.*
 !.env.example
 
+# Google service-account keys & other credential files
+*.credentials.json
+credentials/
+*service-account*.json
+*-sa.json
+
 # SQLite database files
 *.sqlite
 *.sqlite3
@@ -37,3 +43,4 @@ out/
 # Logs
 logs/
 *.log
+secrets/

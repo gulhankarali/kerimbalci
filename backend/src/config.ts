@@ -37,6 +37,16 @@ export const config = {
   genesisDate: process.env.GENESIS_DATE || '2026-10-15',
   dbPath: path.isAbsolute(rawDbPath) ? rawDbPath : path.join(BACKEND_ROOT, rawDbPath),
   port: num('PORT', 4000),
+  // Google Search Console (optional: SEO charts are disabled when unset).
+  // GSC_KEY_FILE is resolved relative to the backend package directory.
+  gsc: {
+    keyFile: process.env.GSC_KEY_FILE
+      ? path.isAbsolute(process.env.GSC_KEY_FILE)
+        ? process.env.GSC_KEY_FILE
+        : path.join(BACKEND_ROOT, process.env.GSC_KEY_FILE)
+      : '',
+    siteUrl: process.env.GSC_SITE_URL || '',
+  },
 };
 
 // Average days per month, used to convert accrued duration <-> months.

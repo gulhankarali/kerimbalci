@@ -99,3 +99,20 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 @media (max-width: 720px) { .charts-row { grid-template-columns: 1fr; } }
 
 .footer { margin-top: 24px; }
+
+/* SEO section */
+.seo { margin-top: 32px; }
+.section-title { margin: 0; font-size: 18px; }
+.card__of { font-size: 16px; font-weight: 500; color: var(--muted); }
+.charts-row--3 { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 900px) { .charts-row--3 { grid-template-columns: 1fr; } }
+.seo-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.seo-table th, .seo-table td { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.seo-table th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); font-weight: 600; }
+.seo-table tr:last-child td { border-bottom: none; }
+.seo-table .num { text-align: right; white-space: nowrap; }
+.seo-table a { color: var(--text); text-decoration: none; }
+.seo-table a:hover { text-decoration: underline; }
+.seo-bar { background: #eef1f4; border-radius: 999px; height: 4px; margin-top: 5px; overflow: hidden; }
+.seo-bar__fill { background: #2a78d6; height: 100%; border-radius: 999px; }
+.badge--brand { background: #f0f2f4; color: var(--muted); margin-left: 6px; padding: 1px 7px; font-size: 11px; }
