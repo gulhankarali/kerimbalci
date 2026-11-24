@@ -45,6 +45,7 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 .card--revenue { background: linear-gradient(135deg, #0b7a4b, #1a9c57); color: #fff; border-color: #0b7a4b; }
 .card--gold { background: linear-gradient(135deg, #b8860b, #d4a017); color: #fff; border-color: #b8860b; }
 .card--silver { background: linear-gradient(135deg, #7d8894, #9aa6b2); color: #fff; border-color: #7d8894; }
+.card--bronz { background: linear-gradient(135deg, #8c5a2b, #b0763f); color: #fff; border-color: #8c5a2b; }
 .card__label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.85; }
 .card__value { font-size: 30px; font-weight: 700; margin-top: 6px; }
 .card__sub { font-size: 12px; opacity: 0.85; margin-top: 2px; }

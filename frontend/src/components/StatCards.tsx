@@ -30,6 +30,11 @@ export function StatCards({ stats }: { stats: Stats }) {
           <div className="card__value">{byTier['Silver'] || 0}</div>
           <div className="card__sub">yılda 1 kitap seçer</div>
         </div>
+        <div className="card card--bronz">
+          <div className="card__label">Bronz üye</div>
+          <div className="card__value">{byTier['Bronz'] || 0}</div>
+          <div className="card__sub">bir kitapta %50 indirim kuponu</div>
+        </div>
       </div>
 
       {/* Milestone + membership-state row */}

@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS metrics_snapshots (
   free_count    INTEGER,
   silver_count  INTEGER,
   gold_count    INTEGER,
+  bronz_count   INTEGER,
   active_count  INTEGER,
   mrr           REAL,
   arr           REAL,
@@ -87,6 +88,7 @@ const MIGRATIONS: [string, string, string][] = [
   ['members', 'currency', 'TEXT'],
   ['members', 'country_code', 'TEXT'], // ISO country from Ghost geolocation
   ['members', 'region', 'TEXT'], // USA | EU | UK | Other
+  ['metrics_snapshots', 'bronz_count', 'INTEGER'], // Bronz tier (Ghost tier name is Turkish)
 ];
 
 function runMigrations(db: Database.Database): void {

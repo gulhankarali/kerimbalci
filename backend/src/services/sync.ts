@@ -113,6 +113,7 @@ interface DerivedSnapshot {
   free: number;
   silver: number;
   gold: number;
+  bronz: number;
   active: number;
   mrr: number;
 }
@@ -129,6 +130,7 @@ function deriveSnapshotForDay(members: GhostMember[], dayEndMs: number): Derived
   let total = 0;
   let gold = 0;
   let silver = 0;
+  let bronz = 0;
   let active = 0;
   let mrrCents = 0;
 
@@ -146,6 +148,7 @@ function deriveSnapshotForDay(members: GhostMember[], dayEndMs: number): Derived
 
     if (cls.tier === 'Gold') gold++;
     else if (cls.tier === 'Silver') silver++;
+    else if (cls.tier === 'Bronz') bronz++;
 
     // MRR counts trialing too ("regardless of trialing").
     if (cls.planAmount) mrrCents += cls.interval === 'year' ? cls.planAmount / 12 : cls.planAmount;
@@ -155,7 +158,7 @@ function deriveSnapshotForDay(members: GhostMember[], dayEndMs: number): Derived
     if (trialEndMs <= dayEndMs) active++;
   }
 
-  return { total, free: total - gold - silver, silver, gold, active, mrr: mrrCents / 100 };
+  return { total, free: total - gold - silver - bronz, silver, gold, bronz, active, mrr: mrrCents / 100 };
 }
 
 function upsertSnapshotRow(
@@ -168,12 +171,12 @@ function upsertSnapshotRow(
   const conflict = overwrite
     ? `ON CONFLICT(date) DO UPDATE SET
          total=excluded.total, free_count=excluded.free_count, silver_count=excluded.silver_count,
-         gold_count=excluded.gold_count, active_count=excluded.active_count,
+         gold_count=excluded.gold_count, bronz_count=excluded.bronz_count, active_count=excluded.active_count,
          mrr=excluded.mrr, arr=excluded.arr, taken_at=excluded.taken_at`
     : `ON CONFLICT(date) DO NOTHING`;
   db.prepare(
-    `INSERT INTO metrics_snapshots (date, total, free_count, silver_count, gold_count, active_count, mrr, arr, taken_at)
-     VALUES (@date, @total, @free, @silver, @gold, @active, @mrr, @arr, @taken_at)
+    `INSERT INTO metrics_snapshots (date, total, free_count, silver_count, gold_count, bronz_count, active_count, mrr, arr, taken_at)
+     VALUES (@date, @total, @free, @silver, @gold, @bronz, @active, @mrr, @arr, @taken_at)
      ${conflict}`,
   ).run({
     date,
@@ -181,6 +184,7 @@ function upsertSnapshotRow(
     free: s.free,
     silver: s.silver,
     gold: s.gold,
+    bronz: s.bronz,
     active: s.active,
     mrr: s.mrr,
     arr: s.mrr * 12,
@@ -207,6 +211,12 @@ function storeSnapshot(db: Database.Database, members: GhostMember[], nowIso: st
     const dayEndMs = Math.min(dayStart + DAY_MS - 1, nowMs);
     const snap = deriveSnapshotForDay(members, dayEndMs);
     upsertSnapshotRow(db, date, snap, nowIso, date === today);
+    // Rows written before Bronz was tracked counted Bronz members as free.
+    // Fix only those tier columns once; leave the rest of the history as-is.
+    db.prepare(
+      `UPDATE metrics_snapshots SET free_count = @free, bronz_count = @bronz
+       WHERE date = @date AND bronz_count IS NULL`,
+    ).run({ date, free: snap.free, bronz: snap.bronz });
   }
 }
 

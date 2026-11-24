@@ -28,7 +28,7 @@ const C = {
   ink: '#52514e',
 };
 
-const TIER_COLORS = { free: C.blue, silver: C.aqua, gold: C.yellow };
+const TIER_COLORS = { free: C.blue, bronz: C.magenta, silver: C.aqua, gold: C.yellow };
 const REGION_COLORS: Record<string, string> = {
   USA: C.blue,
   EU: C.green,
@@ -84,6 +84,7 @@ export function Charts() {
             <Tooltip />
             <Legend />
             <Line type="monotone" dataKey="free_count" name="Free" stroke={TIER_COLORS.free} strokeWidth={2} dot={{ r: 4 }} />
+            <Line type="monotone" dataKey="bronz_count" name="Bronz" stroke={TIER_COLORS.bronz} strokeWidth={2} dot={{ r: 4 }} />
             <Line type="monotone" dataKey="silver_count" name="Silver" stroke={TIER_COLORS.silver} strokeWidth={2} dot={{ r: 4 }} />
             <Line type="monotone" dataKey="gold_count" name="Gold" stroke={TIER_COLORS.gold} strokeWidth={2} dot={{ r: 4 }} />
           </LineChart>

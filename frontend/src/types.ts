@@ -51,6 +51,7 @@ export interface Snapshot {
   free_count: number;
   silver_count: number;
   gold_count: number;
+  bronz_count: number | null;
   active_count: number;
   mrr: number;
   arr: number;

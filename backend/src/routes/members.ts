@@ -113,7 +113,7 @@ router.get('/metrics/timeseries', (_req, res) => {
   const db = getDb();
   const rows = db
     .prepare(
-      `SELECT date, total, free_count, silver_count, gold_count, active_count, mrr, arr
+      `SELECT date, total, free_count, silver_count, gold_count, bronz_count, active_count, mrr, arr
        FROM metrics_snapshots ORDER BY date ASC`,
     )
     .all();
